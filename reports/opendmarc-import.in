@@ -528,7 +528,7 @@ while (<STDIN>)
 						undef @rua;
 						$sigcount = 0;
 						undef $sp;
-						undef $spf;
+						$spf = -1;
 					}
 
 					$jobid = $value;
@@ -578,7 +578,7 @@ while (<STDIN>)
 				}
 
 	  case "spf"		{
-					$spf = $value;
+					$spf = ( defined($value) ? $value : -1 );
 				}
 
 	  else			{
