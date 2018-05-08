@@ -135,7 +135,12 @@ my $repemail     = "postmaster@" . $repdom;
 
 my $smtp_server  = '127.0.0.1';
 my $smtp_port    = 25;
+my $smtp_user    = "";
+my $smtp_pass    = "";
+my $smtp_use_tls = 0;
 my $smtp;
+my $smtp_sasl;
+my $smtp_mech;
 
 my $answer;
 
@@ -163,6 +168,9 @@ sub usage
 	print STDERR "\t--report-org       reporting organization [$repdom]\n";
 	print STDERR "\t--smtp-port        smtp server port [$smtp_port]\n";
 	print STDERR "\t--smtp-server      smtp server [$smtp_server]\n";
+	print STDERR "\t--smtp-user        smtp user [$smtp_user]\n";
+	print STDERR "\t--smtp-pass        smtp pass [$smtp_pass]\n";
+	print STDERR "\t--smtp-tls         use TLS in smtp [$smtp_use_tls]\n";
 	print STDERR "\t--test             don't send reports\n";
 	print STDERR "\t                   (implies --keepfiles --noupdate)\n";
 	print STDERR "\t--utc              operate in UTC\n";
@@ -191,6 +199,9 @@ my $opt_retval = &Getopt::Long::GetOptions ('day!' => \$daybound,
                                             'report-org=s' => \$repdom,
                                             'smtp-server=s' => \$smtp_server,
                                             'smtp-port=i' => \$smtp_port,
+                                            'smtp-user=s' => \$smtp_user,
+                                            'smtp-pass=s' => \$smtp_pass,
+                                            'smtp-tls!' => \$smtp_use_tls,
                                             'update!' => \$doupdate,
                                             'utc!' => \$use_utc,
                                             'verbose+' => \$verbose,
@@ -394,6 +405,42 @@ if (!defined($smtp))
 {
 	print STDERR "$progname: open SMTP server $smtp_server:$smtp_port failed\n";
 	exit(1);
+}
+
+if ($smtp_use_tls)
+{
+	if (!$smtp->starttls(SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE))
+	{
+		print STDERR "$progname: SMTP starttls failed.\n";
+		exit(1);
+	}
+}
+
+if ($smtp_user && $smtp_pass)
+{
+	if ($smtp_mech)
+	{
+		$smtp_sasl = Authen::SASL->new(
+			mechanism => $smtp_mech,
+			callback  => {
+				user => $smtp_user,
+				pass => $smtp_pass,
+				#authname => $smtp_user
+			});
+		if (!$smtp->auth($smtp_sasl))
+		{
+			print STDERR "$progname: SMTP AUTH failed.\n";
+			exit(1);
+		}
+	}
+	else
+	{
+		if (!$smtp->auth($smtp_user, $smtp_pass))
+		{
+			print STDERR "$progname: SMTP AUTH failed.\n";
+			exit(1);
+		}
+	}
 }
 
 foreach (@$domainset)
